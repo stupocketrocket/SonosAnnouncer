@@ -1,0 +1,44 @@
+# Helper entities used by script_send_sonos_announcement.yaml and the
+# "Sonos Announce" dashboard section.
+#
+# For this project these were created via Settings -> Devices & Services ->
+# Helpers -> "+ Create Helper" in the Home Assistant UI (Text / Number /
+# Toggle), which is the easiest way to get going. The YAML below is an
+# equivalent you can drop under the matching top-level keys in
+# configuration.yaml instead, if you prefer config-as-code - either route
+# produces the same entity IDs, which is what actually matters: they must
+# match what script_send_sonos_announcement.yaml reads.
+#
+# IMPORTANT: the six announce_<room> input_booleans must be named/slugged to
+# match your own Sonos room names (see the "speakers" list in ../README.md).
+# The names below match this project's household; rename the keys (and the
+# corresponding lines in the script) to match yours.
+
+input_text:
+  announcement_message:
+    name: Announcement Message
+    max: 255
+
+input_number:
+  announcement_volume:
+    name: Announcement Volume
+    min: 0
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+
+input_boolean:
+  announce_all_speakers:
+    name: Announce All Speakers
+  announce_garden:
+    name: Announce Garden
+  announce_kitchen:
+    name: Announce Kitchen
+  announce_living_room:
+    name: Announce Living Room
+  announce_main_bedroom:
+    name: Announce Main Bedroom
+  announce_office:
+    name: Announce Office
+  announce_charlotte_s_bedroom:
+    name: Announce Charlotte's Bedroom

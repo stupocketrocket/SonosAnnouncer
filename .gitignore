@@ -1,0 +1,9 @@
+# Real secrets - copy Config.example.h to Config.h and fill in your own values.
+Config.h
+
+# Arduino IDE / build artifacts
+build/
+*.bin
+*.elf
+*.map
+.vscode/

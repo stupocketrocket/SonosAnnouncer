@@ -1,0 +1,47 @@
+# "Sonos Announce" section for a Lovelace "sections"-type dashboard.
+#
+# This is exactly the block that was appended to the end of this household's
+# manually-authored "Home" dashboard, directly below its existing
+# "Scenes & scripts" section, via Settings -> Dashboards -> Home -> (pencil)
+# -> three-dot menu -> "Raw configuration editor".
+#
+# To reuse on your own "sections"-type dashboard: open its raw configuration
+# editor, find the `sections:` list under the view you want this on, and
+# paste this block in as one more list item (matching the existing
+# indentation of sibling `- type: grid` entries exactly - YAML is
+# whitespace-sensitive and Home Assistant will reject a bad indent).
+- type: grid
+  cards:
+    - type: heading
+      heading: Sonos Announce
+      icon: mdi:bullhorn
+    - type: tile
+      entity: input_text.announcement_message
+      name: Message
+    - type: tile
+      entity: input_number.announcement_volume
+      name: Volume
+    - type: tile
+      entity: input_boolean.announce_all_speakers
+      name: All Speakers
+    - type: tile
+      entity: input_boolean.announce_garden
+      name: Garden
+    - type: tile
+      entity: input_boolean.announce_kitchen
+      name: Kitchen
+    - type: tile
+      entity: input_boolean.announce_living_room
+      name: Living Room
+    - type: tile
+      entity: input_boolean.announce_main_bedroom
+      name: Main Bedroom
+    - type: tile
+      entity: input_boolean.announce_office
+      name: Office
+    - type: tile
+      entity: input_boolean.announce_charlotte_s_bedroom
+      name: Charlotte's Bedroom
+    - type: tile
+      entity: script.send_sonos_announcement
+      name: Send Announcement
