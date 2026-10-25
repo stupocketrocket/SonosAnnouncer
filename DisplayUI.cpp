@@ -31,13 +31,19 @@ static String sensorKeys[MAX_SENSOR_ROWS];
 static String sensorValues[MAX_SENSOR_ROWS];
 static int sensorCount = 0;
 
-void displaySetup() {
-  display.init(115200);
-  display.setRotation(1);
-  display.setTextColor(GxEPD_BLACK);
-}
+// A tri-colour full refresh blocks for ~15-30s. To keep that off the main loop
+// (which drives the Sonos/TTS/audio-server work), all drawing happens on a
+// dedicated task; the public displayShow*() calls just post a request and
+// return. Latest request wins, so a quick announce -> dashboard sequence
+// skips the intermediate screen rather than queueing two slow refreshes.
+enum DisplayRequest { REQ_NONE, REQ_ANNOUNCING, REQ_DASHBOARD };
 
-void displayShowAnnouncing(const String& text) {
+static SemaphoreHandle_t stateMutex = nullptr;
+static TaskHandle_t displayTask = nullptr;
+static DisplayRequest pendingRequest = REQ_NONE;
+static String pendingText;
+
+static void renderAnnouncing(const String& text) {
   display.setFullWindow();
   display.firstPage();
   do {
@@ -74,9 +80,11 @@ void displayShowAnnouncing(const String& text) {
 }
 
 void displaySetSensorValue(const String& key, const String& value) {
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
   for (int i = 0; i < sensorCount; i++) {
     if (sensorKeys[i] == key) {
       sensorValues[i] = value;
+      xSemaphoreGive(stateMutex);
       return;
     }
   }
@@ -85,9 +93,21 @@ void displaySetSensorValue(const String& key, const String& value) {
     sensorValues[sensorCount] = value;
     sensorCount++;
   }
+  xSemaphoreGive(stateMutex);
 }
 
-void displayShowDashboard() {
+static void renderDashboard() {
+  // Copy the rows under the lock so MQTT updates can't change them mid-refresh
+  // (the draw loop below runs once per display page).
+  String keys[MAX_SENSOR_ROWS], values[MAX_SENSOR_ROWS];
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  int count = sensorCount;
+  for (int i = 0; i < count; i++) {
+    keys[i] = sensorKeys[i];
+    values[i] = sensorValues[i];
+  }
+  xSemaphoreGive(stateMutex);
+
   display.setFullWindow();
   display.firstPage();
   do {
@@ -99,14 +119,50 @@ void displayShowDashboard() {
 
     display.setFont(&FreeSans9pt7b);
     int y = 50;
-    for (int i = 0; i < sensorCount; i++) {
+    for (int i = 0; i < count; i++) {
       display.setCursor(6, y);
-      display.print(sensorKeys[i] + ": " + sensorValues[i]);
+      display.print(keys[i] + ": " + values[i]);
       y += 18;
     }
-    if (sensorCount == 0) {
+    if (count == 0) {
       display.setCursor(6, y);
       display.print("(no sensor data yet)");
     }
   } while (display.nextPage());
 }
+
+static void displayTaskFn(void*) {
+  for (;;) {
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    xSemaphoreTake(stateMutex, portMAX_DELAY);
+    DisplayRequest req = pendingRequest;
+    String text = pendingText;
+    pendingRequest = REQ_NONE;
+    xSemaphoreGive(stateMutex);
+
+    if (req == REQ_ANNOUNCING) renderAnnouncing(text);
+    else if (req == REQ_DASHBOARD) renderDashboard();
+  }
+}
+
+static void postRequest(DisplayRequest req, const String& text) {
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  pendingRequest = req;
+  pendingText = text;
+  xSemaphoreGive(stateMutex);
+  xTaskNotifyGive(displayTask);
+}
+
+void displaySetup() {
+  display.init(115200);
+  display.setRotation(1);
+  display.setTextColor(GxEPD_BLACK);
+
+  stateMutex = xSemaphoreCreateMutex();
+  xTaskCreatePinnedToCore(displayTaskFn, "display", 8192, nullptr, 1, &displayTask, 0);
+}
+
+void displayShowAnnouncing(const String& text) { postRequest(REQ_ANNOUNCING, text); }
+
+void displayShowDashboard() { postRequest(REQ_DASHBOARD, ""); }
